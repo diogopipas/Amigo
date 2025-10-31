@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.LocalContext
@@ -90,7 +91,7 @@ fun rememberImagePicker(
     ) { isGranted ->
         if (isGranted) {
             galleryLauncher.launch(
-                null
+                PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
             )
         } else {
             onError("Storage permission is required")
@@ -108,7 +109,7 @@ fun rememberImagePicker(
         pickFromGallery = {
             if (helper.hasStoragePermission()) {
                 galleryLauncher.launch(
-                    null
+                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
                 )
             } else {
                 val permission = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {

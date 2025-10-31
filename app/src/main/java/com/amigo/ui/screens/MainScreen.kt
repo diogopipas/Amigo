@@ -3,8 +3,6 @@ package com.amigo.ui.screens
 import android.net.Uri
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -19,7 +17,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
-import com.amigo.model.Meal
 import com.amigo.ui.components.LoadingDialog
 import com.amigo.ui.components.MacroProgressBar
 import com.amigo.ui.components.MealCard
@@ -35,7 +32,7 @@ fun MainScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val dailySummary by viewModel.dailySummary.collectAsState()
-    val recentMeals by viewModel.recentMeals.collectAsState()
+    val todayMeals by viewModel.todayMeals.collectAsState()
     
     var showImagePickerDialog by remember { mutableStateOf(false) }
     var showAnalysisDialog by remember { mutableStateOf(false) }
@@ -46,7 +43,7 @@ fun MainScreen(
             showAnalysisDialog = true
             showImagePickerDialog = false
         },
-        onError = { error ->
+        onError = { _ ->
             viewModel.dismissError()
             // Show error snackbar here if needed
         }
@@ -100,22 +97,23 @@ fun MainScreen(
                 )
             }
 
-            // Recent Meals Section
-            if (recentMeals.isNotEmpty()) {
+            // Today's Meals Section
+            if (todayMeals.isNotEmpty()) {
                 Text(
-                    text = "Recent Meals",
+                    text = "Today's Meals",
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.padding(top = 8.dp)
                 )
                 
-                LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    items(recentMeals) { meal ->
-                        RecentMealItem(
+                    todayMeals.forEach { meal ->
+                        MealCard(
                             meal = meal,
+                            modifier = Modifier.fillMaxWidth(),
                             onClick = { onNavigateToDetails(meal.id) }
                         )
                     }
@@ -123,7 +121,7 @@ fun MainScreen(
             }
 
             // Empty State
-            if (recentMeals.isEmpty() && dailySummary?.isEmpty() != false) {
+            if (todayMeals.isEmpty() && dailySummary?.isEmpty() != false) {
                 EmptyState()
             }
         }
@@ -313,37 +311,6 @@ private fun NutritionItem(label: String, value: String) {
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.primary
         )
-    }
-}
-
-@Composable
-private fun RecentMealItem(meal: Meal, onClick: () -> Unit) {
-    Card(
-        modifier = Modifier
-            .width(120.dp)
-            .clickable(onClick = onClick),
-        shape = RoundedCornerShape(12.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-    ) {
-        Column {
-            AsyncImage(
-                model = Uri.parse(meal.imageUri),
-                contentDescription = null,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(120.dp),
-                contentScale = ContentScale.Crop
-            )
-            Column(
-                modifier = Modifier.padding(8.dp)
-            ) {
-                Text(
-                    text = "${meal.calories} kcal",
-                    style = MaterialTheme.typography.bodySmall,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-        }
     }
 }
 

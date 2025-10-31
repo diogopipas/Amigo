@@ -51,8 +51,10 @@ class MealRepository(context: Context) {
     /**
      * Get today's meals
      */
-    suspend fun getTodayMeals(): List<Meal> {
-        return mealDao.getTodayMeals().map { it.toDomain() }
+    fun getTodayMeals(): Flow<List<Meal>> {
+        return mealDao.getTodayMeals().map { entities ->
+            entities.map { it.toDomain() }
+        }
     }
 
     /**

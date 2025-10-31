@@ -19,7 +19,7 @@ interface MealDao {
         WHERE date(timestamp / 1000, 'unixepoch', 'localtime') = date('now', 'localtime')
         ORDER BY timestamp DESC
     """)
-    suspend fun getTodayMeals(): List<MealEntity>
+    fun getTodayMeals(): Flow<List<MealEntity>>
 
     @Query("""
         SELECT 
@@ -35,7 +35,7 @@ interface MealDao {
     """)
     suspend fun getTodaySummary(): DailySummaryEntity?
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    @Insert
     suspend fun insertMeal(meal: MealEntity): Long
 
     @Delete

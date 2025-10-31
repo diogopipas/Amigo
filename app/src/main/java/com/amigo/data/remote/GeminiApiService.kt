@@ -4,6 +4,7 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
+import com.amigo.BuildConfig
 import com.amigo.model.NutritionData
 import com.google.ai.client.generativeai.GenerativeModel
 import com.google.ai.client.generativeai.type.content
@@ -19,22 +20,7 @@ import kotlin.math.max
 class GeminiApiService(private val context: Context) {
 
     private fun getApiKey(): String {
-        // Read from local.properties
-        val properties = java.util.Properties()
-        try {
-            val propertiesFile = java.io.File(context.filesDir.parentFile, "../local.properties")
-            if (propertiesFile.exists()) {
-                propertiesFile.inputStream().use { properties.load(it) }
-            }
-        } catch (e: Exception) {
-            // Fallback: try to read from assets or use environment variable
-            e.printStackTrace()
-        }
-        
-        return properties.getProperty("GEMINI_API_KEY", "").ifEmpty {
-            // Try environment variable as fallback
-            System.getenv("GEMINI_API_KEY") ?: ""
-        }
+        return BuildConfig.GEMINI_API_KEY
     }
 
     /**
@@ -93,7 +79,7 @@ class GeminiApiService(private val context: Context) {
 
             // Initialize Gemini model
             val generativeModel = GenerativeModel(
-                modelName = "gemini-pro-vision",
+                modelName = "gemini-2.5-flash",
                 apiKey = apiKey
             )
 
@@ -126,6 +112,7 @@ class GeminiApiService(private val context: Context) {
 
             Result.success(nutritionData)
         } catch (e: Exception) {
+            e.printStackTrace()
             Result.failure(e)
         }
     }

@@ -2,6 +2,7 @@ package com.amigo.viewmodel
 
 import android.app.Application
 import android.net.Uri
+import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.amigo.data.repository.MealRepository
@@ -9,8 +10,10 @@ import com.amigo.model.DailySummary
 import com.amigo.model.Meal
 import com.amigo.model.NutritionData
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 /**
@@ -28,6 +31,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _recentMeals = MutableStateFlow<List<Meal>>(emptyList())
     val recentMeals: StateFlow<List<Meal>> = _recentMeals.asStateFlow()
 
+    val todayMeals: StateFlow<List<Meal>> = repository.getTodayMeals()
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyList()
+        )
+
     init {
         loadDailySummary()
         loadRecentMeals()
@@ -38,6 +48,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
      */
     fun analyzeMeal(imageUri: Uri) {
         viewModelScope.launch {
+            Log.d("MainViewModel", "Starting meal analysis for URI: $imageUri")
             _uiState.value = _uiState.value.copy(
                 isAnalyzing = true,
                 error = null
@@ -45,6 +56,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
             repository.analyzeMealImage(imageUri)
                 .onSuccess { nutritionData ->
+                    Log.d("MainViewModel", "Analysis successful: $nutritionData")
                     _uiState.value = _uiState.value.copy(
                         isAnalyzing = false,
                         analyzedNutrition = nutritionData,
@@ -52,6 +64,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     )
                 }
                 .onFailure { error ->
+                    Log.e("MainViewModel", "Analysis failed", error)
                     _uiState.value = _uiState.value.copy(
                         isAnalyzing = false,
                         error = error.message ?: "Failed to analyze meal"
@@ -77,7 +90,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     carbs = nutrition.carbs,
                     fat = nutrition.fat
                 )
-                repository.saveMeal(meal)
+                Log.d("MainViewModel", "Saving meal: $meal")
+                val id = repository.saveMeal(meal)
+                Log.d("MainViewModel", "Meal saved with ID: $id")
                 
                 // Reset state
                 _uiState.value = MainUiState()
@@ -86,6 +101,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 loadDailySummary()
                 loadRecentMeals()
             } catch (e: Exception) {
+                Log.e("MainViewModel", "Failed to save meal", e)
                 _uiState.value = _uiState.value.copy(
                     error = "Failed to save meal: ${e.message}"
                 )
