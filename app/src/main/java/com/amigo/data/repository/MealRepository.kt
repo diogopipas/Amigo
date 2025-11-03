@@ -78,5 +78,34 @@ class MealRepository(context: Context) {
     suspend fun deleteMeal(mealId: Int) {
         mealDao.deleteMealById(mealId)
     }
+
+    /**
+     * Update a meal's nutrition values
+     */
+    suspend fun updateMealValues(mealId: Int, calories: Int, protein: Double, carbs: Double, fat: Double) {
+        mealDao.updateMealValues(mealId, calories, protein, carbs, fat)
+    }
+
+    /**
+     * Get daily summaries within a date range
+     */
+    suspend fun getDailySummaries(startTimestamp: Long, endTimestamp: Long): List<DailySummary> {
+        return mealDao.getDailySummaries(startTimestamp, endTimestamp).map { it.toDomain() }
+    }
+
+    /**
+     * Get summary for a specific period
+     */
+    suspend fun getPeriodSummary(startTimestamp: Long, endTimestamp: Long): DailySummary {
+        return mealDao.getPeriodSummary(startTimestamp, endTimestamp)?.toDomain()
+            ?: DailySummary(date = System.currentTimeMillis())
+    }
+
+    /**
+     * Get total meal count
+     */
+    suspend fun getTotalMealCount(): Int {
+        return mealDao.getTotalMealCount()
+    }
 }
 

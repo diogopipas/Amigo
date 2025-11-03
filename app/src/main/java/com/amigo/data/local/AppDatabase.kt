@@ -9,12 +9,13 @@ import androidx.room.RoomDatabase
  * Room database for Amigo app
  */
 @Database(
-    entities = [MealEntity::class],
-    version = 2,
+    entities = [MealEntity::class, WeightEntity::class],
+    version = 3,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun mealDao(): MealDao
+    abstract fun weightDao(): WeightDao
 
     companion object {
         @Volatile

@@ -11,6 +11,7 @@ import com.amigo.ui.screens.*
 sealed class Screen(val route: String) {
     object Main : Screen("main")
     object History : Screen("history")
+    object Statistics : Screen("statistics")
     object Settings : Screen("settings")
     object Details : Screen("details/{mealId}") {
         fun createRoute(mealId: Int) = "details/$mealId"
@@ -37,6 +38,10 @@ fun AmigoNavigation(navController: NavHostController = rememberNavController()) 
                     navController.navigate(Screen.Details.createRoute(mealId))
                 }
             )
+        }
+        
+        composable(Screen.Statistics.route) {
+            StatisticsScreen()
         }
         
         composable(

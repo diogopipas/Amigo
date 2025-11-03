@@ -76,19 +76,24 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     /**
      * Save analyzed meal to database
      */
-    fun saveMeal() {
+    fun saveMeal(quantity: Double = 1.0) {
         val state = _uiState.value
         val nutrition = state.analyzedNutrition ?: return
         val imageUri = state.currentImageUri ?: return
 
         viewModelScope.launch {
             try {
+                val safeQuantity = if (quantity.isFinite() && quantity > 0.0) quantity else 1.0
+                val scaledCalories = (nutrition.calories * safeQuantity).toInt()
+                val scaledProtein = nutrition.protein * safeQuantity
+                val scaledCarbs = nutrition.carbs * safeQuantity
+                val scaledFat = nutrition.fat * safeQuantity
                 val meal = Meal(
                     imageUri = imageUri.toString(),
-                    calories = nutrition.calories,
-                    protein = nutrition.protein,
-                    carbs = nutrition.carbs,
-                    fat = nutrition.fat
+                    calories = scaledCalories,
+                    protein = scaledProtein,
+                    carbs = scaledCarbs,
+                    fat = scaledFat
                 )
                 Log.d("MainViewModel", "Saving meal: $meal")
                 val id = repository.saveMeal(meal)

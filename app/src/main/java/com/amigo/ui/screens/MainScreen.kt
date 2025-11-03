@@ -10,6 +10,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
@@ -17,22 +18,31 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
-import com.amigo.ui.components.LoadingDialog
+import com.amigo.data.MascotMessages
+import com.amigo.ui.components.AmigoMascotInline
+import com.amigo.ui.components.AmigoMascotOverlay
 import com.amigo.ui.components.MacroProgressBar
 import com.amigo.ui.components.MealCard
 import com.amigo.utils.rememberImagePicker
 import com.amigo.viewmodel.MainViewModel
+import com.amigo.viewmodel.SettingsViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainScreen(
     viewModel: MainViewModel = viewModel(),
+    settingsViewModel: SettingsViewModel = viewModel(),
     onNavigateToDetails: (Int) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val dailySummary by viewModel.dailySummary.collectAsState()
     val todayMeals by viewModel.todayMeals.collectAsState()
+    
+    val calorieGoal by settingsViewModel.calorieGoal.collectAsState()
+    val proteinGoal by settingsViewModel.proteinGoal.collectAsState()
+    val carbsGoal by settingsViewModel.carbsGoal.collectAsState()
+    val fatGoal by settingsViewModel.fatGoal.collectAsState()
     
     var showImagePickerDialog by remember { mutableStateOf(false) }
     var showAnalysisDialog by remember { mutableStateOf(false) }
@@ -49,7 +59,16 @@ fun MainScreen(
         }
     )
 
+    val snackbarHostState = remember { SnackbarHostState() }
+    var savedJustNowTip by remember { mutableStateOf<String?>(null) }
+    
+    // Remember the motivational message so it doesn't change when returning to the screen
+    val motivationalMessage = rememberSaveable {
+        MascotMessages.randomAny()
+    }
+
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         floatingActionButton = {
             FloatingActionButton(
                 onClick = { showImagePickerDialog = true },
@@ -70,24 +89,28 @@ fun MainScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // Header with motivational message
-            Text(
-                text = "Keep it up, Amigo! 💙",
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary
+            // Header with mascot and rotating message
+            AmigoMascotInline(
+                message = motivationalMessage
             )
 
             // Daily Summary Card
-            DailySummaryCard(dailySummary)
+            DailySummaryCard(
+                summary = dailySummary,
+                calorieGoal = calorieGoal,
+                proteinGoal = proteinGoal.toDouble(),
+                carbsGoal = carbsGoal.toDouble(),
+                fatGoal = fatGoal.toDouble()
+            )
 
             // Analysis Results Card (if available)
             if (uiState.analyzedNutrition != null && uiState.currentImageUri != null) {
                 AnalysisResultCard(
                     imageUri = uiState.currentImageUri!!,
                     nutrition = uiState.analyzedNutrition!!,
-                    onSave = {
-                        viewModel.saveMeal()
+                    onSave = { quantity ->
+                        viewModel.saveMeal(quantity)
+                        savedJustNowTip = MascotMessages.afterSaveMessage()
                         showAnalysisDialog = false
                     },
                     onCancel = {
@@ -140,9 +163,12 @@ fun MainScreen(
         )
     }
 
-    // Loading Dialog
+    // Analysis overlay: Amigo speaks while analyzing
     if (uiState.isAnalyzing) {
-        LoadingDialog()
+        AmigoMascotOverlay(
+            message = MascotMessages.analyzingMessage(),
+            onDismiss = { /* modal, no-op while analyzing */ }
+        )
     }
 
     // Error Snackbar
@@ -151,10 +177,24 @@ fun MainScreen(
             // Error will be shown via snackbar host state if needed
         }
     }
+
+    // Show encouragement snackbar after saving a meal
+    if (savedJustNowTip != null) {
+        LaunchedEffect(savedJustNowTip) {
+            snackbarHostState.showSnackbar(savedJustNowTip!!)
+            savedJustNowTip = null
+        }
+    }
 }
 
 @Composable
-private fun DailySummaryCard(summary: com.amigo.model.DailySummary?) {
+private fun DailySummaryCard(
+    summary: com.amigo.model.DailySummary?,
+    calorieGoal: Int,
+    proteinGoal: Double,
+    carbsGoal: Double,
+    fatGoal: Double
+) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
@@ -176,43 +216,32 @@ private fun DailySummaryCard(summary: com.amigo.model.DailySummary?) {
             )
 
             if (summary?.isEmpty() == false) {
-                // Calories
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column {
-                        Text(
-                            text = "Calories",
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-                        Text(
-                            text = "${summary.totalCalories} kcal",
-                            style = MaterialTheme.typography.headlineSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                    }
-                }
+                // Calories with progress
+                MacroProgressBar(
+                    label = "Calories",
+                    current = summary.totalCalories.toDouble(),
+                    target = calorieGoal.toDouble(),
+                    color = MaterialTheme.colorScheme.primary,
+                    unit = "kcal"
+                )
 
                 // Macros
                 MacroProgressBar(
                     label = "Protein",
                     current = summary.totalProtein,
-                    target = 120.0,
+                    target = proteinGoal,
                     color = MaterialTheme.colorScheme.primary
                 )
                 MacroProgressBar(
                     label = "Carbs",
                     current = summary.totalCarbs,
-                    target = 200.0,
+                    target = carbsGoal,
                     color = MaterialTheme.colorScheme.secondary
                 )
                 MacroProgressBar(
                     label = "Fat",
                     current = summary.totalFat,
-                    target = 65.0,
+                    target = fatGoal,
                     color = MaterialTheme.colorScheme.tertiary
                 )
             } else {
@@ -230,7 +259,7 @@ private fun DailySummaryCard(summary: com.amigo.model.DailySummary?) {
 private fun AnalysisResultCard(
     imageUri: Uri,
     nutrition: com.amigo.model.NutritionData,
-    onSave: () -> Unit,
+    onSave: (Double) -> Unit,
     onCancel: () -> Unit
 ) {
     Card(
@@ -274,6 +303,68 @@ private fun AnalysisResultCard(
                 NutritionItem("Fat", "${String.format(java.util.Locale.getDefault(), "%.1f", nutrition.fat)}g")
             }
 
+            var quantityText by remember { mutableStateOf("1.0") }
+            val quantity = quantityText.toDoubleOrNull()?.coerceAtLeast(0.1) ?: 1.0
+
+            Text(
+                text = "Quantity",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
+            )
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                OutlinedButton(onClick = {
+                    val current = quantityText.toDoubleOrNull() ?: 1.0
+                    val next = (current - 0.5).coerceAtLeast(0.1)
+                    quantityText = String.format(java.util.Locale.getDefault(), "%.1f", next)
+                }) {
+                    Text("-")
+                }
+                OutlinedTextField(
+                    value = quantityText,
+                    onValueChange = {
+                        val cleaned = it.replace(',', '.')
+                        if (cleaned.isEmpty() || cleaned == "." || cleaned.toDoubleOrNull() != null) {
+                            quantityText = cleaned
+                        }
+                    },
+                    label = { Text("Servings") },
+                    singleLine = true,
+                    modifier = Modifier.weight(1f)
+                )
+                OutlinedButton(onClick = {
+                    val current = quantityText.toDoubleOrNull() ?: 1.0
+                    val next = current + 0.5
+                    quantityText = String.format(java.util.Locale.getDefault(), "%.1f", next)
+                }) {
+                    Text("+")
+                }
+            }
+
+            val previewCalories = (nutrition.calories * quantity).toInt()
+            val previewProtein = nutrition.protein * quantity
+            val previewCarbs = nutrition.carbs * quantity
+            val previewFat = nutrition.fat * quantity
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceEvenly
+            ) {
+                NutritionItem("Calories", "$previewCalories kcal")
+                NutritionItem("Protein", "${String.format(java.util.Locale.getDefault(), "%.1f", previewProtein)}g")
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceEvenly
+            ) {
+                NutritionItem("Carbs", "${String.format(java.util.Locale.getDefault(), "%.1f", previewCarbs)}g")
+                NutritionItem("Fat", "${String.format(java.util.Locale.getDefault(), "%.1f", previewFat)}g")
+            }
+
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -285,7 +376,7 @@ private fun AnalysisResultCard(
                     Text("Cancel")
                 }
                 Button(
-                    onClick = onSave,
+                    onClick = { onSave(quantity) },
                     modifier = Modifier.weight(1f)
                 ) {
                     Text("Save Meal")

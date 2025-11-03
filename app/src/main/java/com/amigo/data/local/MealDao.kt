@@ -46,6 +46,54 @@ interface MealDao {
 
     @Query("SELECT * FROM meals ORDER BY timestamp DESC LIMIT :limit")
     suspend fun getRecentMeals(limit: Int): List<MealEntity>
+
+    @Query("""
+        UPDATE meals SET 
+            calories = :calories,
+            protein = :protein,
+            carbs = :carbs,
+            fat = :fat
+        WHERE id = :mealId
+    """)
+    suspend fun updateMealValues(
+        mealId: Int,
+        calories: Int,
+        protein: Double,
+        carbs: Double,
+        fat: Double
+    )
+
+    // Statistics queries
+    @Query("""
+        SELECT 
+            date(timestamp / 1000, 'unixepoch', 'localtime') as date,
+            SUM(calories) as totalCalories,
+            SUM(protein) as totalProtein,
+            SUM(carbs) as totalCarbs,
+            SUM(fat) as totalFat,
+            COUNT(*) as mealCount
+        FROM meals
+        WHERE timestamp >= :startTimestamp AND timestamp <= :endTimestamp
+        GROUP BY date(timestamp / 1000, 'unixepoch', 'localtime')
+        ORDER BY date ASC
+    """)
+    suspend fun getDailySummaries(startTimestamp: Long, endTimestamp: Long): List<DailySummaryEntity>
+
+    @Query("""
+        SELECT 
+            '' as date,
+            SUM(calories) as totalCalories,
+            SUM(protein) as totalProtein,
+            SUM(carbs) as totalCarbs,
+            SUM(fat) as totalFat,
+            COUNT(*) as mealCount
+        FROM meals
+        WHERE timestamp >= :startTimestamp AND timestamp <= :endTimestamp
+    """)
+    suspend fun getPeriodSummary(startTimestamp: Long, endTimestamp: Long): DailySummaryEntity?
+
+    @Query("SELECT COUNT(*) FROM meals")
+    suspend fun getTotalMealCount(): Int
 }
 
 data class DailySummaryEntity(
@@ -57,8 +105,35 @@ data class DailySummaryEntity(
     val mealCount: Int?
 ) {
     fun toDomain(): com.amigo.model.DailySummary {
+        // Parse date string (YYYY-MM-DD) or use current time if empty/invalid
+        val parsedDate = if (date.isNotEmpty()) {
+            try {
+                val parts = date.split("-")
+                if (parts.size == 3) {
+                    val year = parts[0].toInt()
+                    val month = parts[1].toInt()
+                    val day = parts[2].toInt()
+                    java.util.Calendar.getInstance().apply {
+                        set(java.util.Calendar.YEAR, year)
+                        set(java.util.Calendar.MONTH, month - 1)
+                        set(java.util.Calendar.DAY_OF_MONTH, day)
+                        set(java.util.Calendar.HOUR_OF_DAY, 0)
+                        set(java.util.Calendar.MINUTE, 0)
+                        set(java.util.Calendar.SECOND, 0)
+                        set(java.util.Calendar.MILLISECOND, 0)
+                    }.timeInMillis
+                } else {
+                    System.currentTimeMillis()
+                }
+            } catch (e: Exception) {
+                System.currentTimeMillis()
+            }
+        } else {
+            System.currentTimeMillis()
+        }
+        
         return com.amigo.model.DailySummary(
-            date = System.currentTimeMillis(),
+            date = parsedDate,
             totalCalories = totalCalories ?: 0,
             totalProtein = totalProtein ?: 0.0,
             totalCarbs = totalCarbs ?: 0.0,

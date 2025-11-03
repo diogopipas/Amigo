@@ -17,6 +17,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
+import coil.request.ImageRequest
 import com.amigo.utils.ShareHelper
 import com.amigo.viewmodel.DetailsViewModel
 import java.text.SimpleDateFormat
@@ -34,6 +35,7 @@ fun DetailsScreen(
     val isLoading by viewModel.isLoading.collectAsState()
     val context = LocalContext.current
     var showDeleteDialog by remember { mutableStateOf(false) }
+    var showPortionDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(mealId) {
         viewModel.loadMeal(mealId)
@@ -53,6 +55,12 @@ fun DetailsScreen(
                 },
                 actions = {
                     meal?.let {
+                        IconButton(onClick = { showPortionDialog = true }) {
+                            Icon(
+                                imageVector = Icons.Default.Edit,
+                                contentDescription = "Edit Portions"
+                            )
+                        }
                         IconButton(
                             onClick = {
                                 ShareHelper.shareMeal(
@@ -108,7 +116,12 @@ fun DetailsScreen(
             ) {
                 // Meal Image
                 AsyncImage(
-                    model = Uri.parse(meal!!.imageUri),
+                    model = ImageRequest.Builder(context)
+                        .data(Uri.parse(meal!!.imageUri))
+                        .crossfade(true)
+                        .memoryCacheKey("meal-image-" + meal!!.id)
+                        .diskCacheKey("meal-image-" + meal!!.id)
+                        .build(),
                     contentDescription = "Meal image",
                     modifier = Modifier
                         .fillMaxWidth()
@@ -207,6 +220,85 @@ fun DetailsScreen(
             },
             dismissButton = {
                 TextButton(onClick = { showDeleteDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
+    // Portion Edit Dialog
+    if (showPortionDialog && meal != null) {
+        var quantityText by remember { mutableStateOf("1.0") }
+        val quantity = quantityText.toDoubleOrNull()?.coerceAtLeast(0.1) ?: 1.0
+
+        val previewCalories = (meal!!.calories * quantity).toInt()
+        val previewProtein = meal!!.protein * quantity
+        val previewCarbs = meal!!.carbs * quantity
+        val previewFat = meal!!.fat * quantity
+
+        AlertDialog(
+            onDismissRequest = { showPortionDialog = false },
+            title = { Text("Edit Portions") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text("Adjust servings to scale this meal's nutrition.")
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        OutlinedButton(onClick = {
+                            val current = quantityText.toDoubleOrNull() ?: 1.0
+                            val next = (current - 0.5).coerceAtLeast(0.1)
+                            quantityText = String.format(Locale.getDefault(), "%.1f", next)
+                        }) { Text("-") }
+                        OutlinedTextField(
+                            value = quantityText,
+                            onValueChange = {
+                                val cleaned = it.replace(',', '.')
+                                if (cleaned.isEmpty() || cleaned == "." || cleaned.toDoubleOrNull() != null) {
+                                    quantityText = cleaned
+                                }
+                            },
+                            label = { Text("Servings") },
+                            singleLine = true,
+                            modifier = Modifier.weight(1f)
+                        )
+                        OutlinedButton(onClick = {
+                            val current = quantityText.toDoubleOrNull() ?: 1.0
+                            val next = current + 0.5
+                            quantityText = String.format(Locale.getDefault(), "%.1f", next)
+                        }) { Text("+") }
+                    }
+
+                    Divider()
+                    Text("Preview")
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceEvenly
+                    ) {
+                        Text("Calories: $previewCalories kcal")
+                        Text("Protein: ${String.format(Locale.getDefault(), "%.1f", previewProtein)}g")
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceEvenly
+                    ) {
+                        Text("Carbs: ${String.format(Locale.getDefault(), "%.1f", previewCarbs)}g")
+                        Text("Fat: ${String.format(Locale.getDefault(), "%.1f", previewFat)}g")
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    viewModel.scaleMealPortions(meal!!.id, quantity)
+                    showPortionDialog = false
+                }) {
+                    Text("Apply")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showPortionDialog = false }) {
                     Text("Cancel")
                 }
             }

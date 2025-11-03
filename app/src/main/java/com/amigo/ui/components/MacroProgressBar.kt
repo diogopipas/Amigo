@@ -20,6 +20,7 @@ fun MacroProgressBar(
     current: Double,
     target: Double = 100.0,
     color: androidx.compose.ui.graphics.Color = MaterialTheme.colorScheme.primary,
+    unit: String = "g",
     modifier: Modifier = Modifier
 ) {
     val progress = (current / target).coerceIn(0.0, 1.0).toFloat()
@@ -28,6 +29,19 @@ fun MacroProgressBar(
         animationSpec = tween(durationMillis = 1000),
         label = "progress"
     )
+
+    // Format numbers: show decimals for macros, integers for calories
+    val isCalories = unit.contains("kcal", ignoreCase = true)
+    val currentFormatted = if (isCalories) {
+        current.toInt().toString()
+    } else {
+        String.format(Locale.getDefault(), "%.1f", current)
+    }
+    val targetFormatted = if (isCalories) {
+        target.toInt().toString()
+    } else {
+        String.format(Locale.getDefault(), "%.1f", target)
+    }
 
     Column(
         modifier = modifier.fillMaxWidth(),
@@ -44,7 +58,7 @@ fun MacroProgressBar(
                 fontWeight = FontWeight.Medium
             )
             Text(
-                text = "${String.format(Locale.getDefault(), "%.1f", current)} / ${String.format(Locale.getDefault(), "%.1f", target)}g",
+                text = "$currentFormatted / $targetFormatted${if (unit.isNotEmpty()) " $unit" else ""}",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
             )

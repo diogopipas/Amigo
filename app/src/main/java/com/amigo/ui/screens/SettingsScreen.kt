@@ -9,9 +9,11 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.amigo.viewmodel.SettingsViewModel
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -21,8 +23,41 @@ fun SettingsScreen(
 ) {
     val apiKey by viewModel.apiKey.collectAsState()
     val themeMode by viewModel.themeMode.collectAsState()
+    val calorieGoal by viewModel.calorieGoal.collectAsState()
+    val proteinGoal by viewModel.proteinGoal.collectAsState()
+    val carbsGoal by viewModel.carbsGoal.collectAsState()
+    val fatGoal by viewModel.fatGoal.collectAsState()
+    val weightGoal by viewModel.weightGoal.collectAsState()
+    val currentWeight by viewModel.currentWeight.collectAsState()
     
     var apiKeyInput by remember { mutableStateOf(apiKey) }
+    
+    var calorieGoalInput by remember { mutableStateOf(calorieGoal.toString()) }
+    var proteinGoalInput by remember { mutableStateOf(String.format(Locale.getDefault(), "%.1f", proteinGoal)) }
+    var carbsGoalInput by remember { mutableStateOf(String.format(Locale.getDefault(), "%.1f", carbsGoal)) }
+    var fatGoalInput by remember { mutableStateOf(String.format(Locale.getDefault(), "%.1f", fatGoal)) }
+    var weightGoalInput by remember { mutableStateOf(if (weightGoal > 0) String.format(Locale.getDefault(), "%.1f", weightGoal) else "") }
+    var currentWeightInput by remember { mutableStateOf(if (currentWeight > 0) String.format(Locale.getDefault(), "%.1f", currentWeight) else "") }
+    
+    // Update input fields when goals change from DataStore
+    LaunchedEffect(calorieGoal) {
+        calorieGoalInput = calorieGoal.toString()
+    }
+    LaunchedEffect(proteinGoal) {
+        proteinGoalInput = String.format(Locale.getDefault(), "%.1f", proteinGoal)
+    }
+    LaunchedEffect(carbsGoal) {
+        carbsGoalInput = String.format(Locale.getDefault(), "%.1f", carbsGoal)
+    }
+    LaunchedEffect(fatGoal) {
+        fatGoalInput = String.format(Locale.getDefault(), "%.1f", fatGoal)
+    }
+    LaunchedEffect(weightGoal) {
+        weightGoalInput = if (weightGoal > 0) String.format(Locale.getDefault(), "%.1f", weightGoal) else ""
+    }
+    LaunchedEffect(currentWeight) {
+        currentWeightInput = if (currentWeight > 0) String.format(Locale.getDefault(), "%.1f", currentWeight) else ""
+    }
 
     Scaffold(
         topBar = {
@@ -132,6 +167,197 @@ fun SettingsScreen(
                                 onClick = { viewModel.setThemeMode("system") },
                                 label = { Text("System") }
                             )
+                        }
+                    }
+                }
+            }
+
+            // Nutrition Goals Section
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(20.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    Text(
+                        text = "Daily Nutrition Goals",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold
+                    )
+                    
+                    Text(
+                        text = "Set your daily targets for calories and macros to track your progress.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                    )
+
+                    OutlinedTextField(
+                        value = calorieGoalInput,
+                        onValueChange = { 
+                            if (it.isEmpty() || it.all { char -> char.isDigit() }) {
+                                calorieGoalInput = it
+                            }
+                        },
+                        label = { Text("Daily Calories (kcal)") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                            keyboardType = KeyboardType.Number
+                        )
+                    )
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        OutlinedTextField(
+                            value = proteinGoalInput,
+                            onValueChange = { 
+                                val cleaned = it.replace(',', '.')
+                                if (cleaned.isEmpty() || cleaned == "." || cleaned.toDoubleOrNull() != null) {
+                                    proteinGoalInput = cleaned
+                                }
+                            },
+                            label = { Text("Protein (g)") },
+                            modifier = Modifier.weight(1f),
+                            singleLine = true,
+                            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                                keyboardType = KeyboardType.Decimal
+                            )
+                        )
+                        OutlinedTextField(
+                            value = carbsGoalInput,
+                            onValueChange = { 
+                                val cleaned = it.replace(',', '.')
+                                if (cleaned.isEmpty() || cleaned == "." || cleaned.toDoubleOrNull() != null) {
+                                    carbsGoalInput = cleaned
+                                }
+                            },
+                            label = { Text("Carbs (g)") },
+                            modifier = Modifier.weight(1f),
+                            singleLine = true,
+                            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                                keyboardType = KeyboardType.Decimal
+                            )
+                        )
+                        OutlinedTextField(
+                            value = fatGoalInput,
+                            onValueChange = { 
+                                val cleaned = it.replace(',', '.')
+                                if (cleaned.isEmpty() || cleaned == "." || cleaned.toDoubleOrNull() != null) {
+                                    fatGoalInput = cleaned
+                                }
+                            },
+                            label = { Text("Fat (g)") },
+                            modifier = Modifier.weight(1f),
+                            singleLine = true,
+                            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                                keyboardType = KeyboardType.Decimal
+                            )
+                        )
+                    }
+
+                    Button(
+                        onClick = {
+                            val calories = calorieGoalInput.toIntOrNull() ?: 2000
+                            val protein = proteinGoalInput.toFloatOrNull() ?: 120.0f
+                            val carbs = carbsGoalInput.toFloatOrNull() ?: 200.0f
+                            val fat = fatGoalInput.toFloatOrNull() ?: 65.0f
+                            viewModel.setNutritionGoals(calories, protein, carbs, fat)
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Save Goals")
+                    }
+                }
+            }
+
+            // Weight Tracking Section
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(20.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    Text(
+                        text = "Weight Tracking",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold
+                    )
+                    
+                    Text(
+                        text = "Set your weight goal and register your current weight to track your progress.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                    )
+
+                    OutlinedTextField(
+                        value = weightGoalInput,
+                        onValueChange = { 
+                            val cleaned = it.replace(',', '.')
+                            if (cleaned.isEmpty() || cleaned == "." || cleaned.toFloatOrNull() != null) {
+                                weightGoalInput = cleaned
+                            }
+                        },
+                        label = { Text("Weight Goal (kg)") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                            keyboardType = KeyboardType.Decimal
+                        ),
+                        placeholder = { Text("Enter your target weight") }
+                    )
+
+                    OutlinedTextField(
+                        value = currentWeightInput,
+                        onValueChange = { 
+                            val cleaned = it.replace(',', '.')
+                            if (cleaned.isEmpty() || cleaned == "." || cleaned.toFloatOrNull() != null) {
+                                currentWeightInput = cleaned
+                            }
+                        },
+                        label = { Text("Current Weight (kg)") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                            keyboardType = KeyboardType.Decimal
+                        ),
+                        placeholder = { Text("Enter your current weight") }
+                    )
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Button(
+                            onClick = {
+                                val weight = weightGoalInput.toFloatOrNull() ?: 0f
+                                viewModel.setWeightGoal(weight)
+                            },
+                            modifier = Modifier.weight(1f),
+                            enabled = weightGoalInput.isNotEmpty()
+                        ) {
+                            Text("Save Goal")
+                        }
+                        Button(
+                            onClick = {
+                                val weight = currentWeightInput.toFloatOrNull() ?: 0f
+                                viewModel.setCurrentWeight(weight)
+                            },
+                            modifier = Modifier.weight(1f),
+                            enabled = currentWeightInput.isNotEmpty()
+                        ) {
+                            Text("Register Weight")
                         }
                     }
                 }

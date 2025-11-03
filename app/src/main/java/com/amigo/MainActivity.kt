@@ -10,6 +10,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
@@ -24,10 +30,16 @@ import com.amigo.navigation.Screen
 import com.amigo.ui.screens.*
 import com.amigo.ui.theme.AmigoTheme
 import com.amigo.viewmodel.SettingsViewModel
+import com.amigo.data.MascotMessages
+import com.amigo.ui.components.AmigoMascotOverlay
+import kotlinx.coroutines.delay
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Disable activity transition animations
+        overridePendingTransition(0, 0)
+        
         setContent {
             val viewModel: SettingsViewModel = viewModel()
             val themeMode by viewModel.themeMode.collectAsState()
@@ -49,6 +61,12 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+    
+    override fun finish() {
+        super.finish()
+        // Disable exit animation
+        overridePendingTransition(0, 0)
+    }
 }
 
 @Composable
@@ -56,6 +74,7 @@ fun AmigoApp() {
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
+    var showWelcome by rememberSaveable { mutableStateOf(true) }
 
     Scaffold(
         bottomBar = {
@@ -86,6 +105,18 @@ fun AmigoApp() {
                         }
                     )
                     NavigationBarItem(
+                        icon = { Icon(Icons.Default.BarChart, contentDescription = "Statistics") },
+                        label = { Text("Stats") },
+                        selected = currentRoute == Screen.Statistics.route,
+                        onClick = {
+                            if (currentRoute != Screen.Statistics.route) {
+                                navController.navigate(Screen.Statistics.route) {
+                                    popUpTo(Screen.Main.route)
+                                }
+                            }
+                        }
+                    )
+                    NavigationBarItem(
                         icon = { Icon(Icons.Default.Settings, contentDescription = "Settings") },
                         label = { Text("Settings") },
                         selected = currentRoute == Screen.Settings.route,
@@ -101,6 +132,17 @@ fun AmigoApp() {
             }
         }
     ) { paddingValues ->
+        if (showWelcome) {
+            LaunchedEffect(Unit) {
+                delay(2000)
+                showWelcome = false
+            }
+            AmigoMascotOverlay(
+                message = "Welcome! " + MascotMessages.randomAny(),
+                onDismiss = { showWelcome = false }
+            )
+        }
+
         NavHost(
             navController = navController,
             startDestination = Screen.Main.route,
@@ -120,6 +162,10 @@ fun AmigoApp() {
                         navController.navigate(Screen.Details.createRoute(mealId))
                     }
                 )
+            }
+
+            composable(Screen.Statistics.route) {
+                StatisticsScreen()
             }
 
             composable(

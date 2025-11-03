@@ -16,6 +16,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
+import coil.request.ImageRequest
 import com.amigo.model.Meal
 import java.text.SimpleDateFormat
 import java.util.*
@@ -44,7 +45,13 @@ fun MealCard(
         ) {
             // Meal image
             AsyncImage(
-                model = Uri.parse(meal.imageUri),
+                model = ImageRequest.Builder(context)
+                    .data(Uri.parse(meal.imageUri))
+                    .crossfade(true)
+                    // Use a stable unique key per meal to avoid showing wrong cached images
+                    .memoryCacheKey("meal-image-" + meal.id)
+                    .diskCacheKey("meal-image-" + meal.id)
+                    .build(),
                 contentDescription = "Meal image",
                 modifier = Modifier
                     .size(80.dp)
